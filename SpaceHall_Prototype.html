@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Space Hall — Blueprint Prototype</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050713;font-family:system-ui,-apple-system,Segoe UI,sans-serif;touch-action:none}
+canvas{display:block;width:100%;height:100%}
+#hud{position:fixed;inset:0;pointer-events:none;color:#e9f4ff}
+.badge{position:absolute;top:12px;left:12px;background:rgba(5,10,25,.62);border:1px solid rgba(160,220,255,.35);border-radius:12px;padding:8px 12px;font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+.help{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(5,10,25,.6);border:1px solid rgba(160,220,255,.25);border-radius:999px;padding:8px 14px;font-size:12px;white-space:nowrap}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"><div class="badge">SPACE HALL • PROTOTYPE</div><div class="help">Swipe ← / → to inspect the three directions • Swipe ↑ to enter</div></div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let W=innerWidth,H=innerHeight,dpr=Math.min(2,devicePixelRatio||1);
+function resize(){W=innerWidth;H=innerHeight;dpr=Math.min(2,devicePixelRatio||1);c.width=W*dpr;c.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)} addEventListener('resize',resize);resize();
+
+let dir=1, mode=0, t=0, downX=0,downY=0;
+const stars=Array.from({length:180},()=>({x:Math.random(),y:Math.random(),z:Math.random(),s:Math.random()*1.7+.3}));
+
+function poly(points,fill,stroke){ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);for(let i=1;i<points.length;i++)ctx.lineTo(points[i][0],points[i][1]);ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.stroke()}}
+
+function draw(){
+ t+=.016; ctx.clearRect(0,0,W,H);
+ const horizon=H*.39, cx=W/2;
+ const night=ctx.createLinearGradient(0,0,0,H);night.addColorStop(0,'#050818');night.addColorStop(.52,'#0d1630');night.addColorStop(1,'#10192a');ctx.fillStyle=night;ctx.fillRect(0,0,W,H);
+ // stars
+ for(const s of stars){let x=((s.x+(t*.002*(1-s.z)))%1)*W; let y=s.y*horizon*.95; let a=.25+.55*(1-s.z);ctx.globalAlpha=a;ctx.fillStyle='#d8efff';ctx.fillRect(x,y,s.s,s.s)}ctx.globalAlpha=1;
+ // celestial orb follows day/night
+ const nightMode=(Math.sin(t*.18)+1)/2;
+ const sunX=cx + Math.sin(t*.18)*W*.34, sunY=horizon*.35;
+ const moonX=cx - Math.sin(t*.18)*W*.34, moonY=horizon*.32;
+ ctx.globalAlpha=.95;ctx.beginPath();ctx.arc(sunX,sunY,Math.min(W,H)*.065,0,Math.PI*2);ctx.fillStyle='#9ef08f';ctx.fill();
+ ctx.beginPath();ctx.arc(moonX,moonY,Math.min(W,H)*.05,0,Math.PI*2);ctx.fillStyle='#d8e6ff';ctx.fill();ctx.globalAlpha=1;
+ // outer architecture: blueprint side walls
+ const topY=horizon, botY=H*.82;
+ poly([[0,0],[W*.25,topY],[W*.25,botY],[0,H]],'#183f58');
+ poly([[W,0],[W*.75,topY],[W*.75,botY],[W,H]],'#183f58');
+ // wall highlights
+ ctx.strokeStyle='rgba(120,220,255,.24)';ctx.lineWidth=2;
+ ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(W*.25,topY);ctx.lineTo(W*.25,botY);ctx.stroke();
+ ctx.beginPath();ctx.moveTo(W,0);ctx.lineTo(W*.75,topY);ctx.lineTo(W*.75,botY);ctx.stroke();
+ // floor
+ poly([[0,H],[W,H],[W*.75,botY],[W*.25,botY]],'#283244');
+ for(let i=0;i<10;i++){let p=i/10;let y=botY+(H-botY)*p*p;ctx.strokeStyle='rgba(160,210,240,.09)';ctx.beginPath();ctx.moveTo(W*.25-(W*.25)*p,y);ctx.lineTo(W*.75+(W*.25)*p,y);ctx.stroke()}
+ // corridor portal frame
+ const shift=dir*W*.07;
+ ctx.strokeStyle='#6de3ff';ctx.lineWidth=4;
+ poly([[W*.25+shift,topY],[W*.75+shift,topY],[W*.75+shift,botY],[W*.25+shift,botY]],null,'rgba(109,227,255,.5)');
+ // three exits at end
+ const exits=[
+   {x:cx-W*.18,label:'LEFT',col:'#74f5d1'},
+   {x:cx,label:'CENTER',col:'#8ed1ff'},
+   {x:cx+W*.18,label:'RIGHT',col:'#c7a7ff'}
+ ];
+ exits.forEach((e,i)=>{
+   const selected=(i===mode);
+   const w=W*.13*(selected?1.12:1), h=H*.17*(selected?1.12:1);
+   const y=H*.34;
+   ctx.fillStyle=selected?e.col:'rgba(80,120,160,.32)';
+   ctx.shadowBlur=selected?28:0;ctx.shadowColor=e.col;
+   poly([[e.x-w/2,y],[e.x+w/2,y],[e.x+w*.38,y+h],[e.x-w*.38,y+h]],ctx.fillStyle);
+   ctx.shadowBlur=0;
+   ctx.fillStyle='#06101c';ctx.font='700 12px system-ui';ctx.textAlign='center';ctx.fillText(e.label,e.x,y+h*.58);
+ });
+ // floating beacon
+ const pulse=1+Math.sin(t*2.2)*.08;ctx.beginPath();ctx.arc(cx,H*.25,10*pulse,0,Math.PI*2);ctx.fillStyle='rgba(120,240,255,.18)';ctx.fill();ctx.beginPath();ctx.arc(cx,H*.25,4,0,Math.PI*2);ctx.fillStyle='#c9fbff';ctx.fill();
+ // labels
+ ctx.textAlign='center';ctx.fillStyle='rgba(225,244,255,.85)';ctx.font='600 14px system-ui';
+ ctx.fillText(mode===0?'LEFT HALLWAY':mode===1?'CENTRAL HALLWAY':'RIGHT HALLWAY',cx,H*.9);
+ ctx.font='12px system-ui';ctx.fillStyle='rgba(190,220,240,.7)';ctx.fillText('Day/night cycle • swipe navigation • expandable hall graph',cx,H*.94);
+ requestAnimationFrame(draw);
+}
+draw();
+
+function nav(dx){mode=(mode+dx+3)%3;dir=dx>0?1:-1}
+addEventListener('touchstart',e=>{const p=e.changedTouches[0];downX=p.clientX;downY=p.clientY},{passive:true});
+addEventListener('touchend',e=>{const p=e.changedTouches[0],dx=p.clientX-downX,dy=p.clientY-downY;if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)){nav(dx>0?-1:1)}else if(dy<-55){mode=1}});
+addEventListener('pointerdown',e=>{downX=e.clientX;downY=e.clientY});
+addEventListener('pointerup',e=>{const dx=e.clientX-downX,dy=e.clientY-downY;if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy))nav(dx>0?-1:1);else if(dy<-55)mode=1});
+</script>
+</body></html>
